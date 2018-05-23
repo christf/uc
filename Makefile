@@ -6,7 +6,10 @@ dir:
 binary: server client
 
 server:
-	gcc -Os -o bin/server server.c
+	gcc $(CFLAGS) -o bin/server server.c
 
 client:
-	gcc -Os -Wall -o bin/client client.c
+	gcc $(CFLAGS) -o bin/client client.c
+
+install: client
+	cp bin/client /usr/bin/uc

@@ -27,9 +27,26 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <sys/epoll.h>
+#include <errno.h>
+#include <stdarg.h>
 #include <stdlib.h>
 
-#define BUFFER_SIZE 256
+#define BUFFER_SIZE 1024
+#define MAXEVENTS 16
+
+void add_fd ( int efd, int fd, uint32_t events )
+{
+	struct epoll_event event = {};
+	event.data.fd = fd;
+	event.events = events;
+
+	int s = epoll_ctl ( efd, EPOLL_CTL_ADD, fd, &event );
+	if ( s == -1 ) {
+		perror ( "epoll_ctl (ADD):" );
+		exit(-1);
+	}
+}
 
 int main(int argc, char **argv) {
 	int fd;
@@ -70,24 +87,52 @@ int main(int argc, char **argv) {
 			perror("send");
 			ok = 0;
 		}
-	}
 
-	if (ok) {
-		size_t output_len;
-		while (1) {
-			output_len = recv(fd, buff, BUFFER_SIZE -1, 0);
-			if (output_len < 0 ) {
-				perror("recv");
-			}
-			printf ("%s", buff);
-			fflush(stdout);
-			if (output_len < BUFFER_SIZE-1) {
-				break;
-			}
-			memset(buff, 0, output_len);
+		if (shutdown(fd, SHUT_WR) ) {
+			perror("shutdown");
 		}
 	}
 
+	struct epoll_event *events = NULL;
+	if (ok) {
+		size_t output_len;
+		events = malloc(MAXEVENTS * sizeof(struct epoll_event));
+		if (!events) {
+			perror("malloc");
+			exit(-1);
+		}
+
+		int efd = epoll_create1 ( 0 );
+		if ( efd == -1 ) {
+			perror ( "epoll_create" );
+			goto cleanup;
+		}
+		add_fd ( efd, fd, EPOLLIN );
+
+		while (1) {
+			int n = epoll_wait ( efd, events, MAXEVENTS, -1 );
+
+			for ( int i = 0; i < n; i++ ) {
+				if (events[i].data.fd == fd ) {
+					output_len = recv(fd, buff, BUFFER_SIZE -1, MSG_DONTWAIT);
+					if ( ( output_len == -1 ) && ( errno != EAGAIN ) ) {
+						perror ( "read error" );
+						goto cleanup;
+					} else if ( output_len == -1 ) {
+						break; // errno must be EAGAIN - we have read all data that is currently available. FD is still open.
+					} else if ( output_len == 0 ) {
+						goto cleanup; // received EOF, closing connection
+					}
+					printf ("%s", buff);
+					fflush(stdout);
+					memset(buff, 0, output_len);
+				}
+			}
+		}
+	}
+
+cleanup:
+	free(events);
 	if (fd >= 0) {
 		close(fd);
 	}

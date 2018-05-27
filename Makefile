@@ -1,14 +1,14 @@
-all: dir client
+all: client
 
 dir:
 	mkdir -p bin/
 
 binary: server client
 
-server:
+server: dir
 	gcc $(CFLAGS) -o bin/server server.c
 
-client:
+client: dir
 	gcc $(CFLAGS) -o bin/client client.c
 
 install: client

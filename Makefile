@@ -12,4 +12,6 @@ client: dir
 	gcc -Os -o bin/client client.c
 
 install: client
-	cp bin/client /usr/bin/uc
+	mkdir -p $(DESTDIR)/usr/bin
+	install -m 0755 bin/client $(DESTDIR)/usr/bin/uc
+

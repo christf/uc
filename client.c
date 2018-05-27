@@ -29,7 +29,6 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <errno.h>
-#include <stdarg.h>
 #include <stdlib.h>
 
 #define BUFFER_SIZE 1024

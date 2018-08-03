@@ -36,24 +36,21 @@ int main() {
 	int ret;
 	char buff[1024];
 	struct sockaddr_un from;
-	int ok = 1;
 	int len;
 	socklen_t fromlen = sizeof(from);
 
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
 		perror("socket");
-		ok = 0;
+		return 1;
 	}
 
-	if (ok) {
-		memset(&addr, 0, sizeof(addr));
-		addr.sun_family = AF_UNIX;
-		strcpy(addr.sun_path, SOCK_FILE);
-		unlink(SOCK_FILE);
-		if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-			perror("bind");
-			ok = 0;
-		}
+	memset(&addr, 0, sizeof(addr));
+	addr.sun_family = AF_UNIX;
+	strcpy(addr.sun_path, SOCK_FILE);
+	unlink(SOCK_FILE);
+	if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+		perror("bind");
+		return 1;
 	}
 
 	if (listen(fd, 5)) {
@@ -68,13 +65,14 @@ int main() {
 			continue;
 		}
 
-		while ( (rc=read(cl,buff,sizeof(buff))) > 0) {
-			printf("read %u bytes: %.*s", rc, rc, buff);
+		while ( (rc=read(cl, buff, sizeof(buff) ) ) > 0) {
+			write(cl, "read: ", 6);
+			write(cl, buff, rc );
 			write(cl, "transmit done!", 15);
 		}
 		if (rc == -1) {
 			perror("read");
-			return(1);
+			return 1;
 		}
 		else if (rc == 0) {
 			close(cl);

@@ -55,7 +55,7 @@ int main(int argc, char **argv) {
 	if (argc != 2) {
 		printf("send the first line of data received on stdin to the unix socket\n and display the response\n\n");
 		printf("synopsis: uc <unix socket>\n");
-		return 1;
+		return 2;
 	}
 
 	if ((fd = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
@@ -98,12 +98,14 @@ int main(int argc, char **argv) {
 		events = malloc(MAXEVENTS * sizeof(struct epoll_event));
 		if (!events) {
 			perror("malloc");
-			exit(-1);
+			ok = 0;
+			goto cleanup;
 		}
 
 		int efd = epoll_create1 ( 0 );
 		if ( efd == -1 ) {
 			perror ( "epoll_create" );
+			ok = 0;
 			goto cleanup;
 		}
 		add_fd ( efd, fd, EPOLLIN );
@@ -116,6 +118,7 @@ int main(int argc, char **argv) {
 					output_len = recv(fd, buff, BUFFER_SIZE -1, MSG_DONTWAIT);
 					if ( ( output_len == -1 ) && ( errno != EAGAIN ) ) {
 						perror ( "read error" );
+						ok = 0;
 						goto cleanup;
 					} else if ( output_len == -1 ) {
 						break; // errno must be EAGAIN - we have read all data that is currently available. FD is still open.
@@ -135,5 +138,5 @@ cleanup:
 	if (fd >= 0) {
 		close(fd);
 	}
-	return 0;
+	return ! ok;
 }
